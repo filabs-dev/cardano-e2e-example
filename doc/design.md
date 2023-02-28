@@ -58,10 +58,12 @@ The other user pays `k2` Token `B`, closing the script and burning the control t
 
 ### **Update**
 
---- COMPLETE ME ----
+The user can update the escrow and change the payment (amount and/or asset class) they will receive or the address at which they will receive it.
 
+![updateEscrow diagram](img/updateEscrow.png)
 
-An **important clarification** for the transactions is what happen when one of the token A or token B is ADA. Considering that the smallest unit of **ADA** is **Lovelace**, the Wallet funds or the Script locked value change in the following way: <br>
+An **important clarification** for the transactions is what happen when one of the token A or token B is ADA. Considering that the smallest unit of **ADA** is **Lovelace**, the Wallet funds or the Script locked value change in the following way:
+
 Every time we have **N** **ADAs** and **k1** **Token A** and A is **Lovelace**, then the total amount of **ADAs** will be **(N * 1_000_000) + k1 Lovelace**
 
 ## Validator Scripts

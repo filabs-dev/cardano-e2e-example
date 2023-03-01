@@ -20,6 +20,7 @@ module Escrow.OffChain.Operations
     , cancelOp
     , resolveOp
     , reloadOp
+    , updateOp
     )
 where
 
@@ -68,7 +69,7 @@ import Escrow.Validator ( Escrowing
                         , controlTokenCurrency, controlTokenMP
                         )
 import Escrow.Types   ( eInfo, cTokenName, mkEscrowDatum
-                      , cancelRedeemer, resolveRedeemer
+                      , cancelRedeemer, resolveRedeemer, updateRedeemer
                       )
 import Utils.OffChain ( lookupScriptUtxos, findValidUtxoFromRef
                       , getDatumWithError
@@ -96,6 +97,9 @@ endpoints raddr = forever $ handleError logError $ awaitPromise $
 
     reloadEp :: Promise (Last ObservableState) EscrowSchema Text ()
     reloadEp = endpoint @"reload" $ reloadOp raddr
+
+    updateEp :: Promise (Last ObservableState) EscrowSchema Text ()
+    updateEp = endpoint @"update" $ updateOp raddr
 
 {- | A user, using its `addr`, locks the tokens they want to exchange and
      specifies the tokens they want to receive and from whom, all these
@@ -242,6 +246,16 @@ reloadOp addr rFlag = do
     utxosEInfo <- mapM (mkUtxoEscrowInfoFromTxOut cTokenAsset) utxos
 
     tell $ Last $ Just $ mkObservableState rFlag utxosEInfo
+
+updateOp
+    :: forall s
+    .  WalletAddress
+    -> UpdateParams
+    -> Contract (Last ObservableState) s Text ()
+updateOp addr UpdateParams{..} = do
+    let contractAddress = escrowAddress upReceiverAddress
+        validator       = escrowValidator cpReceiverAddress
+
 
 {- | Off-chain function for getting the Typed Datum (EscrowInfo) from a
      DecoratedTxOut.

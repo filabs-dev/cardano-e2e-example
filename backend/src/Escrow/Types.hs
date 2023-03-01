@@ -70,6 +70,7 @@ mkEscrowDatum sAdd amount asset cAsset =
 -- | Spending the script UTxO can be done with the Cancel or Resolve redeemer.
 data EscrowRedeemer = CancelEscrow
                     | ResolveEscrow
+                    | UpdateEscrow
 
 -- | Untyped Cancel Redeemer.
 cancelRedeemer :: Redeemer
@@ -79,6 +80,10 @@ cancelRedeemer = Redeemer $ toBuiltinData CancelEscrow
 resolveRedeemer :: Redeemer
 resolveRedeemer = Redeemer $ toBuiltinData ResolveEscrow
 
+-- | Untyped Update Redeemer.
+updateRedeemer :: Redeemer
+updateRedeemer = Redeemer $ toBuiltinData UpdateEscrow
+
 -- | Control token name.
 cTokenName :: TokenName
 cTokenName = "controlToken"
@@ -87,4 +92,5 @@ cTokenName = "controlToken"
 makeIsDataIndexed ''EscrowDatum    [ ('EscrowDatum, 0) ]
 makeIsDataIndexed ''EscrowRedeemer [ ('CancelEscrow, 0)
                                    , ('ResolveEscrow, 1)
+                                   , ('UpdateEscrow, 2)
                                    ]

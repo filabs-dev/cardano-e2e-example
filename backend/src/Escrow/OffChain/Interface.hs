@@ -15,6 +15,7 @@ module Escrow.OffChain.Interface
     , StartParams(..)
     , CancelParams(..)
     , ResolveParams(..)
+    , UpdateParams(..)
     -- * Observable state information
     , ObservableState(..)
     , UtxoEscrowInfo(..)
@@ -22,6 +23,7 @@ module Escrow.OffChain.Interface
     , mkStartParams
     , mkCancelParams
     , mkResolveParams
+    , mkUpdateParams
     , mkUtxoEscrowInfo
     , mkObservableState
     )
@@ -44,6 +46,7 @@ type EscrowSchema = Endpoint "start"   StartParams
                 .\/ Endpoint "cancel"  CancelParams
                 .\/ Endpoint "resolve" ResolveParams
                 .\/ Endpoint "reload"  Integer
+                .\/ Endpoint "update"  UpdateParams
 
 {-| The start parameter includes the Address of the receiver, that
     will be used to get the contract address and validator.
@@ -81,6 +84,22 @@ newtype ResolveParams = ResolveParams { rpTxOutRef :: TxOutRef }
   deriving (Generic)
   deriving anyclass (FromJSON, ToJSON)
 
+{-| The update parameters include the reference of the script UTxO to find the
+    complete UTxO with it's datum. It contains the receiver address to get the
+    contract address and validator. It also contains the information that the
+    sender wants to change about the escrow (that can be: the address to receive
+    the payment, and the payment class and/or amount).
+-}
+data UpdateParams = UpdateParams
+                    { upTxOutRef           :: TxOutRef
+                    , newSenderAddr        :: SenderAddress
+                    , upReceiverAddr       :: ReceiverAddress
+                    , newReceiveAmount     :: Integer
+                    , newReceiveAssetClass :: AssetClass
+                    }
+    deriving (Generic)
+    deriving anyclass (FromJSON, ToJSON)
+
 -- | Smart constructor for the start param.
 mkStartParams
     :: ReceiverAddress
@@ -107,6 +126,21 @@ mkCancelParams ref rAddr = CancelParams
 -- | Smart constructor for the resolve param.
 mkResolveParams :: TxOutRef -> ResolveParams
 mkResolveParams ref = ResolveParams { rpTxOutRef = ref }
+
+-- | Smart constructor for the update param.
+mkUpdateParams
+    :: TxOutRef
+    -> SenderAddress
+    -> Integer
+    -> AssetClass
+    -> UpdateParams
+mkUpdateParams ref sAddr rAddr uAmount uAC =
+    UpdateParams { upTxOutRef           = ref
+                 , newSenderAddr        = sAddr
+                 , upReceiverAddr       = rAddr
+                 , newReceiveAmount     = uAmount
+                 , newReceiveAssetClass = uAC
+                 }
 
 {- | The observable state encapsulates the information we want to retrieve with
      the reload operation and the flag number expected by the operation to

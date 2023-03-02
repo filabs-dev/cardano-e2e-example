@@ -92,8 +92,8 @@ newtype ResolveParams = ResolveParams { rpTxOutRef :: TxOutRef }
 -}
 data UpdateParams = UpdateParams
                     { upTxOutRef           :: TxOutRef
-                    , newSenderAddr        :: SenderAddress
-                    , upReceiverAddr       :: ReceiverAddress
+                    , newSenderAddress     :: SenderAddress
+                    , upReceiverAddress    :: ReceiverAddress
                     , newReceiveAmount     :: Integer
                     , newReceiveAssetClass :: AssetClass
                     }

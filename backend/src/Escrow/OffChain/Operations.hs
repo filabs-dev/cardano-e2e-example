@@ -247,15 +247,45 @@ reloadOp addr rFlag = do
 
     tell $ Last $ Just $ mkObservableState rFlag utxosEInfo
 
+{- | The user, using its `addr`, updates the escrow placed on the utxo
+     referenced on `updateParams` to change their address to receive
+     payment, or change the payment amount or asset class.
+-}
 updateOp
     :: forall s
     .  WalletAddress
     -> UpdateParams
     -> Contract (Last ObservableState) s Text ()
 updateOp addr UpdateParams{..} = do
-    let contractAddress = escrowAddress upReceiverAddress
-        validator       = escrowValidator cpReceiverAddress
 
+    let senderPpkh      = waPaymentPubKeyHash addr
+        contractAddress = escrowAddress upReceiverAddress
+        cTokenCurrency  = controlTokenCurrency contractAddress
+        cTokenAsset     = assetClass cTokenCurrency cTokenName
+        validator       = escrowValidator upReceiverAddress
+
+    utxo  <- findValidUtxoFromRef upTxOutRef contractAddress cTokenAsset
+
+    let
+        escrowVal = utxo ^. decoratedTxOutValue
+        datum     = mkEscrowDatum (mkSenderAddress newSenderAddr)
+                                  newReceiveAmount
+                                  newReceiveAssetClass
+                                  cTokenAsset
+
+        lkp = mconcat
+            [ plutusV1OtherScript validator
+            , unspentOutputs (singleton upTxOutRef utxo)
+            ]
+        tx = mconcat
+            [ mustPayToTheScriptWithDatumInTx datum escrowVal
+            , mustSpendScriptOutput upTxOutRef updateRedeemer
+            , mustBeSignedBy senderPpkh
+            ]
+    mkTxConstraints @Escrowing lkp tx >>= yieldUnbalancedTx
+    logInfo @String "Escrow updated"
+    logInfo @String $ "Escrow Address: " ++ show contractAddress
+    logInfo @String $ "Control Token Currency Symbol: " ++ show cTokenCurrency
 
 {- | Off-chain function for getting the Typed Datum (EscrowInfo) from a
      DecoratedTxOut.

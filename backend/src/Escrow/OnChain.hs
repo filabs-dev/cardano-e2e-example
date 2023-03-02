@@ -25,7 +25,7 @@ import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
                               , assetClass, assetClassValueOf, assetClassValue
                               , flattenValue, leq
                               )
-import PlutusTx.Prelude       ( Integer, Bool
+import PlutusTx.Prelude       ( Integer, Bool(..)
                               , ($), (&&), (||), (==), (>), (<>)
                               , length, traceIfFalse
                               )
@@ -70,15 +70,20 @@ mkEscrowValidator :: ReceiverAddress
                   -> Bool
 mkEscrowValidator raddr EscrowDatum{..} r ctx =
     case r of
-        CancelEscrow  -> cancelValidator eInfo signer
+        CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
         ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
+                          && controlTokenBurned
+        UpdateEscrow  -> updateValidator
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
-    &&
-    traceIfFalse "controlToken was not burned"
-                 (eAssetClass == assetClass mintedCS mintedTN && mintedA == -1)
+
   where
+    controlTokenBurned :: Bool
+    controlTokenBurned =
+      traceIfFalse "controlToken was not burned"
+      (eAssetClass == assetClass mintedCS mintedTN && mintedA == -1)
+
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName
     (mintedCS, mintedTN, mintedA) = getSingleton $
@@ -136,6 +141,11 @@ resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
 
     receiverV :: Value
     receiverV = valuePaidTo (toAddress rAddr) info
+
+{-# INLINABLE updateValidator #-}
+updateValidator :: Bool
+updateValidator = True
+
 
 {- | Escrow Control Token minting policy
 

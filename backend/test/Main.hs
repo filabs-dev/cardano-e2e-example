@@ -17,6 +17,7 @@ import Tests.OffChain.Trace0 qualified
 import Tests.OffChain.Trace1 qualified
 import Tests.OffChain.Trace2 qualified
 import Tests.OffChain.Trace3 qualified
+import Tests.OffChain.Trace4 qualified
 
 main :: IO ()
 main = defaultMain tests
@@ -34,4 +35,5 @@ offChainTests = testGroup "OffChain Tests"
                 , Tests.OffChain.Trace1.test
                 , Tests.OffChain.Trace2.test
                 , Tests.OffChain.Trace3.test
+                -- , Tests.OffChain.Trace4.test
                 ]

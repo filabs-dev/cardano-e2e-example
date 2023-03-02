@@ -54,7 +54,8 @@ import PlutusTx.Numeric qualified as PN ( (-) )
 
 -- Escrow imports
 import Escrow.OffChain.Interface ( StartParams(..), CancelParams(..)
-                                 , ResolveParams(..), UtxoEscrowInfo
+                                 , ResolveParams(..), UpdateParams(..)
+                                 , UtxoEscrowInfo
                                  , EscrowSchema
                                  , ObservableState
                                  , mkUtxoEscrowInfo
@@ -268,7 +269,7 @@ updateOp addr UpdateParams{..} = do
 
     let
         escrowVal = utxo ^. decoratedTxOutValue
-        datum     = mkEscrowDatum (mkSenderAddress newSenderAddr)
+        datum     = mkEscrowDatum newSenderAddress
                                   newReceiveAmount
                                   newReceiveAssetClass
                                   cTokenAsset

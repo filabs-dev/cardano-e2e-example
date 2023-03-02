@@ -140,6 +140,7 @@ test-suite escrow-tests
     Tests.OffChain.Trace1
     Tests.OffChain.Trace2
     Tests.OffChain.Trace3
+    Tests.OffChain.Trace4
 
   default-language: Haskell2010
   default-extensions:

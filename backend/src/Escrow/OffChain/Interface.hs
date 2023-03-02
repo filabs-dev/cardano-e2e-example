@@ -39,7 +39,7 @@ import Ledger.Value    ( AssetClass )
 import Plutus.Contract ( Endpoint, type (.\/) )
 
 -- Escrow imports
-import Escrow.Types ( EscrowInfo, ReceiverAddress )
+import Escrow.Types ( EscrowInfo, ReceiverAddress, SenderAddress )
 
 -- | Escrow Schema
 type EscrowSchema = Endpoint "start"   StartParams
@@ -131,13 +131,14 @@ mkResolveParams ref = ResolveParams { rpTxOutRef = ref }
 mkUpdateParams
     :: TxOutRef
     -> SenderAddress
+    -> ReceiverAddress
     -> Integer
     -> AssetClass
     -> UpdateParams
 mkUpdateParams ref sAddr rAddr uAmount uAC =
     UpdateParams { upTxOutRef           = ref
-                 , newSenderAddr        = sAddr
-                 , upReceiverAddr       = rAddr
+                 , newSenderAddress     = sAddr
+                 , upReceiverAddress    = rAddr
                  , newReceiveAmount     = uAmount
                  , newReceiveAssetClass = uAC
                  }

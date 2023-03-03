@@ -29,12 +29,13 @@ import Control.Lens    ( (^.) )
 import Control.Monad   ( forever, unless )
 import Data.Map        ( singleton )
 import Data.Text       ( Text )
-import Data.Monoid     ( Last(..) )
+import Data.Monoid     ( Last(..))
 
 -- IOG imports
 import Ledger             ( DecoratedTxOut, TxOutRef, AssetClass, Value
                           , decoratedTxOutValue, getDatum
                           , unPaymentPubKeyHash
+                          , Datum(..)
                           )
 import Ledger.Constraints ( plutusV1MintingPolicy, mustBeSignedBy
                           , mustMintValue
@@ -85,7 +86,7 @@ endpoints
     :: WalletAddress
     -> Contract (Last ObservableState) EscrowSchema Text ()
 endpoints raddr = forever $ handleError logError $ awaitPromise $
-                  startEp `select` cancelEp `select` resolveEp `select` reloadEp
+                  startEp `select` cancelEp `select` resolveEp `select` reloadEp `select` updateEp
   where
     startEp :: Promise (Last ObservableState) EscrowSchema Text ()
     startEp = endpoint @"start" $ startOp raddr
@@ -275,7 +276,8 @@ updateOp addr UpdateParams{..} = do
                                   cTokenAsset
 
         lkp = mconcat
-            [ plutusV1OtherScript validator
+            [ typedValidatorLookups (escrowInst upReceiverAddress)
+            , plutusV1OtherScript validator
             , unspentOutputs (singleton upTxOutRef utxo)
             ]
         tx = mconcat

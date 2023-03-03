@@ -43,6 +43,7 @@ import Tests.Utils   ( emConfig
                      , wallet1Addr, wallet2Addr
                      , tokenACurrencySymbol, tokenAName
                      , tokenBCurrencySymbol, tokenBName
+                     , tokenCCurrencySymbol, tokenCName
                      , getEscrowInfoList, mockReloadFlag
                      )
 import Tests.BCExplorer
@@ -74,16 +75,19 @@ trace = do
     let updateParams = mkUpdateParams
                        (escrowUtxo $ head utxos)
                        (mkSenderAddress wallet1Addr)
-                       (mkReceiverAddress wallet1Addr)
-                       99
-                       (assetClass tokenACurrencySymbol tokenAName)
+                       (mkReceiverAddress wallet2Addr)
+                       1000
+                       (assetClass tokenCCurrencySymbol tokenCName)
 
     callEndpoint @"update" h1 updateParams
     void $ waitNSlots 10
 
+    callEndpoint @"reload" h2 mockReloadFlag
+    utxos <- getEscrowInfoList h2
+
     let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
 
-    callEndpoint @"resolve" h1 resolveParams1
+    callEndpoint @"resolve" h2 resolveParams1
     void $ waitNSlots 10
 
     printBlockChainCFD [ FD (fromBuiltinData :: BuiltinData -> Maybe EscrowDatum) ]

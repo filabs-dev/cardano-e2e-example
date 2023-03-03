@@ -45,7 +45,7 @@ import Escrow ( EscrowSchema, UtxoEscrowInfo, ObservableState(info) )
 import Utils.WalletAddress ( WalletAddress, fromAddress )
 
 walletsWithValue :: [(Wallet,Value)]
-walletsWithValue = [ (w, v <> valueA 1_000_000 <> valueB 1_000_000)
+walletsWithValue = [ (w, v <> valueA 1_000_000 <> valueB 1_000_000 <> valueC 1_000_000 )
                    | w <- wallets
                    ]
   where
@@ -71,19 +71,23 @@ mockAddress = flip pubKeyHashAddress Nothing . mockPKH
 mockWAddress :: Wallet -> WalletAddress
 mockWAddress =  fromJust . fromAddress . mockAddress
 
-tokenAName, tokenBName :: TokenName
+tokenAName, tokenBName, tokenCName :: TokenName
 tokenAName = "A"
 tokenBName = "B"
+tokenCName = "C"
 
-tokenACurrencySymbol, tokenBCurrencySymbol :: CurrencySymbol
+tokenACurrencySymbol, tokenBCurrencySymbol, tokenCCurrencySymbol :: CurrencySymbol
 tokenACurrencySymbol =
     "246ea4f1fd944bc8b0957050a31ab0487016be233725c9f931b1aaaa"
 tokenBCurrencySymbol =
     "0b1e203c7e13914e095bf462441205c1b377e978718fcb93fd44bbbb"
+tokenCCurrencySymbol =
+    "0b1e203c7e13914e095bf462441205c1b377e978718fcb93fd44bbbb"
 
-valueA, valueB :: Integer -> Value
+valueA, valueB, valueC :: Integer -> Value
 valueA = singleton tokenACurrencySymbol tokenAName
 valueB = singleton tokenBCurrencySymbol tokenBName
+valueC = singleton tokenCCurrencySymbol tokenCName
 
 wallet1Addr, wallet2Addr, wallet3Addr, wallet4Addr :: WalletAddress
 wallet1Addr = fromJust $ fromAddress $ mockWalletAddress wallet1

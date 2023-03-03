@@ -144,7 +144,7 @@ resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
 
 {-# INLINABLE updateValidator #-}
 updateValidator :: Bool
-updateValidator = True
+updateValidator = traceIfFalse "Ja" True
 
 
 {- | Escrow Control Token minting policy

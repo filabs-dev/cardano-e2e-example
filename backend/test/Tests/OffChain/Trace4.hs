@@ -31,9 +31,10 @@ import Plutus.Contract.Test  ( (.&&.), checkPredicateOptions
                              , defaultCheckOptions, emulatorConfig
                              , walletFundsChange
                              )
+import PlutusTx               ( BuiltinData, fromBuiltinData )
 
 -- Escrow imports
-import Escrow        ( mkStartParams, mkCancelParams, mkUpdateParams, mkResolveParams
+import Escrow        (EscrowDatum, mkStartParams, mkCancelParams, mkUpdateParams, mkResolveParams
                      , mkReceiverAddress, endpoints, escrowUtxo
                      , mkSenderAddress
                      )
@@ -44,6 +45,7 @@ import Tests.Utils   ( emConfig
                      , tokenBCurrencySymbol, tokenBName
                      , getEscrowInfoList, mockReloadFlag
                      )
+import Tests.BCExplorer
 
 testMsg :: String
 testMsg = "Update Test"
@@ -82,6 +84,9 @@ trace = do
     let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
 
     callEndpoint @"resolve" h1 resolveParams1
+    void $ waitNSlots 10
+
+    printBlockChainCFD [ FD (fromBuiltinData :: BuiltinData -> Maybe EscrowDatum) ]
     void $ waitNSlots 10
 
 runTrace :: IO ()

@@ -5,11 +5,11 @@ Description : Trace3 for unit testing the Escrow contract.
 Copyright   : (c) 2022 IDYIA LLC dba Plank
 Maintainer  : opensource@joinplank.com
 Stability   : develop
-
+​
 In this trace, multiple Senders start escrows with the same wallet as
 the Receiver.
 Then the Receiver resolves all of them, receiving the agreed amount.
-
+​
 Trace execution description:
   1. Wallet 1 starts an escrow with Wallet 2 as the receiver, depositing the
      payment
@@ -38,9 +38,10 @@ import Plutus.Contract.Test   ( (.&&.)
                               , checkPredicateOptions, defaultCheckOptions
                               , emulatorConfig, walletFundsChange
                               )
+import PlutusTx               ( BuiltinData, fromBuiltinData )
 
 -- Escrow imports
-import Escrow        ( mkStartParams, mkResolveParams
+import Escrow        ( EscrowDatum, mkStartParams, mkResolveParams
                      , mkReceiverAddress, endpoints, escrowUtxo
                      )
 import Tests.Utils   ( emConfig
@@ -51,6 +52,7 @@ import Tests.Utils   ( emConfig
                      , tokenBCurrencySymbol, tokenBName
                      , getEscrowInfoList, mockReloadFlag
                      )
+import Tests.BCExplorer
 
 testMsg :: String
 testMsg = "Starting and resolving 3 escrows with same receiver"
@@ -100,6 +102,8 @@ trace = do
     void $ waitNSlots 10
     callEndpoint @"resolve" h4 resolveParams3
     void $ waitNSlots 10
+
+
 
 -- | For running the trace from the repl
 runTrace :: IO ()

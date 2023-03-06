@@ -85,7 +85,7 @@ trace = do
     callEndpoint @"reload" h2 mockReloadFlag
     utxos <- getEscrowInfoList h2
 
-    let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
+    let resolveParams1 = mkResolveParams $ escrowUtxo $ head utxos
 
     callEndpoint @"resolve" h2 resolveParams1
     void $ waitNSlots 10

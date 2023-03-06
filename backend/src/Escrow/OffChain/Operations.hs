@@ -299,7 +299,7 @@ getEscrowInfo
     -> Contract w s Text EscrowInfo
 getEscrowInfo txOut = getDatumWithError txOut >>=
                       maybe (throwError "Datum format invalid")
-                            (pure . eInfo) . (fromBuiltinData . getDatum)
+                            (pure . eInfo) . fromBuiltinData . getDatum
 
 -- | Off-chain function for getting an UtxoEscrowInfo from a DecoratedTxOut.
 mkUtxoEscrowInfoFromTxOut

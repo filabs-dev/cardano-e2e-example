@@ -213,7 +213,7 @@ pad n = (\x -> HP.replicate (n HP.- HP.length x) '0' ++ x) . HP.show
 printBalances :: forall effs. Member Emulator.PrintEffect effs
               => Map.Map Entity Value
               -> Eff effs ()
-printBalances m = do
+printBalances m =
     forM_ (Map.toList m) $ \(e, v) -> do
         printLn $ HP.show e <> ": "
         forM_ (flattenValue v) $ \(cs, tn, a) ->

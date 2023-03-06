@@ -39,8 +39,9 @@ import Escrow        (EscrowDatum, mkStartParams, mkCancelParams, mkUpdateParams
                      , mkSenderAddress
                      )
 import Tests.Utils   ( emConfig
-                     , wallet1, wallet2
-                     , wallet1Addr, wallet2Addr
+                     , wallet1, wallet2, wallet3
+                     , valueA, valueB, valueC
+                     , wallet1Addr, wallet2Addr, wallet3Addr
                      , tokenACurrencySymbol, tokenAName
                      , tokenBCurrencySymbol, tokenBName
                      , tokenCCurrencySymbol, tokenCName
@@ -49,50 +50,76 @@ import Tests.Utils   ( emConfig
 import Tests.BCExplorer
 
 testMsg :: String
-testMsg = "Update Test"
+testMsg = "Starting and updating 2 escrow"
 
--- test :: TestTree
--- test = checkPredicateOptions
---        (defaultCheckOptions & emulatorConfig .~ emConfig)
---        trace
---        (walletFundsChange wallet1 )
+test :: TestTree
+test = checkPredicateOptions
+        (defaultCheckOptions & emulatorConfig .~ emConfig)
+        testMsg
+        (    walletFundsChange wallet1 (valueA (-75) <> valueC 10)
+        .&&. walletFundsChange wallet2 (valueC (-23) <> valueB 15)
+        .&&. walletFundsChange wallet3 (valueA 75 <> valueC (-1000))
+        )
+        trace
 
 trace :: EmulatorTrace ()
 trace = do
-    let startParams = mkStartParams
-                      (mkReceiverAddress wallet2Addr)
+    let startParams1 = mkStartParams
+                      (mkReceiverAddress wallet3Addr)
                       75
                       (assetClass tokenACurrencySymbol tokenAName)
                       10
                       (assetClass tokenBCurrencySymbol tokenBName)
+    let startParams2 = mkStartParams
+                      (mkReceiverAddress wallet3Addr)
+                      23
+                      (assetClass tokenCCurrencySymbol tokenCName)
+                      89
+                      (assetClass tokenBCurrencySymbol tokenBName)
 
     h1 <- activateContractWallet wallet1 $ endpoints wallet1Addr
-    callEndpoint @"start" h1 startParams
+    callEndpoint @"start" h1 startParams1
     void $ waitNSlots 10
     h2 <- activateContractWallet wallet2 $ endpoints wallet2Addr
-    callEndpoint @"reload" h2 mockReloadFlag
-    utxos <- getEscrowInfoList h2
-    let updateParams = mkUpdateParams
-                       (escrowUtxo $ head utxos)
-                       (mkSenderAddress wallet1Addr)
-                       (mkReceiverAddress wallet2Addr)
-                       1000
-                       (assetClass tokenCCurrencySymbol tokenCName)
+    callEndpoint @"start" h2 startParams2
+    void $ waitNSlots 10
+    h3 <- activateContractWallet wallet3 $ endpoints wallet3Addr
+    callEndpoint @"reload" h3 mockReloadFlag
+    utxos <- getEscrowInfoList h3
 
-    callEndpoint @"update" h1 updateParams
+    let updateParams1 = mkUpdateParams
+                        (escrowUtxo $ head utxos)
+                        (mkSenderAddress wallet1Addr)
+                        (mkReceiverAddress wallet3Addr)
+                        10
+                        (assetClass tokenCCurrencySymbol tokenCName)
+        updateParams2 = mkUpdateParams
+                        (escrowUtxo $ head utxos)
+                        (mkSenderAddress wallet2Addr)
+                        (mkReceiverAddress wallet3Addr)
+                        20
+                        (assetClass tokenACurrencySymbol tokenAName)
+
+    callEndpoint @"update" h1 updateParams1
+    void $ waitNSlots 10
+    callEndpoint @"update" h2 updateParams2
     void $ waitNSlots 10
 
-    callEndpoint @"reload" h2 mockReloadFlag
-    utxos <- getEscrowInfoList h2
+    callEndpoint @"reload" h3 mockReloadFlag
+    utxos <- getEscrowInfoList h3
 
-    let resolveParams1 = mkResolveParams $ escrowUtxo $ head utxos
+    let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
+        resolveParams2 = mkResolveParams $ escrowUtxo $ utxos !! 1
 
-    callEndpoint @"resolve" h2 resolveParams1
+    callEndpoint @"resolve" h3 resolveParams1
+    void $ waitNSlots 10
+    callEndpoint @"resolve" h3 resolveParams2
     void $ waitNSlots 10
 
     printBlockChainCFD [ FD (fromBuiltinData :: BuiltinData -> Maybe EscrowDatum) ]
     void $ waitNSlots 10
 
+-- | For running the trace from the repl
 runTrace :: IO ()
 runTrace = do
   putStrLn $ "\n" ++ testMsg ++ ".\n"

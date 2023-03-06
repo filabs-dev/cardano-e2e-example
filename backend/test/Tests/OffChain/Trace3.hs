@@ -104,7 +104,6 @@ trace = do
     void $ waitNSlots 10
 
 
-
 -- | For running the trace from the repl
 runTrace :: IO ()
 runTrace = do

@@ -35,5 +35,5 @@ offChainTests = testGroup "OffChain Tests"
                 , Tests.OffChain.Trace1.test
                 , Tests.OffChain.Trace2.test
                 , Tests.OffChain.Trace3.test
-                -- , Tests.OffChain.Trace4.test
+                , Tests.OffChain.Trace4.test
                 ]

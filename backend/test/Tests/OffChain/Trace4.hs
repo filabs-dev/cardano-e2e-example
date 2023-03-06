@@ -57,8 +57,8 @@ test = checkPredicateOptions
         (defaultCheckOptions & emulatorConfig .~ emConfig)
         testMsg
         (    walletFundsChange wallet1 (valueA (-75) <> valueC 10)
-        .&&. walletFundsChange wallet2 (valueC (-23) <> valueB 15)
-        .&&. walletFundsChange wallet3 (valueA 75 <> valueC (-1000))
+        .&&. walletFundsChange wallet2 (valueC (-23) <> valueA 20)
+        .&&. walletFundsChange wallet3 (valueA 55 <> valueC 13)
         )
         trace
 
@@ -88,13 +88,13 @@ trace = do
     utxos <- getEscrowInfoList h3
 
     let updateParams1 = mkUpdateParams
-                        (escrowUtxo $ head utxos)
+                        (escrowUtxo $ utxos !! 0)
                         (mkSenderAddress wallet1Addr)
                         (mkReceiverAddress wallet3Addr)
                         10
                         (assetClass tokenCCurrencySymbol tokenCName)
         updateParams2 = mkUpdateParams
-                        (escrowUtxo $ head utxos)
+                        (escrowUtxo $ utxos !! 1)
                         (mkSenderAddress wallet2Addr)
                         (mkReceiverAddress wallet3Addr)
                         20

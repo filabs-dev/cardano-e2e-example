@@ -38,6 +38,16 @@ getScriptInputs ctx = filter
     isScript (Address (ScriptCredential _) _) = True
     isScript _ = False
 
+-- | Get all the script outputs from the context
+{-# INLINABLE getScriptOutputs #-}
+getScriptOutputs :: ScriptContext -> [TxOut]
+getScriptOutputs ctx = filter
+                            (isScript . txOutAddress)
+                            (txInfoOutputs $ scriptContextTxInfo ctx)
+  where
+    isScript (Address (ScriptCredential _) _) = True
+    isScript _ = False
+
 -- | Get the UTxOs of given address.
 {-# INLINABLE outputsAt #-}
 outputsAt :: Address -> TxInfo -> [TxOut]

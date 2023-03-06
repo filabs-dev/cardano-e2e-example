@@ -23,6 +23,7 @@ module Escrow.Types
     , mkEscrowDatum
     , cancelRedeemer
     , resolveRedeemer
+    , updateRedeemer
     , cTokenName
     -- * Business Smart Constructors
     , mkEscrowInfo

@@ -25,7 +25,7 @@ import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
                               , assetClass, assetClassValueOf, assetClassValue
                               , flattenValue, leq
                               )
-import PlutusTx.Prelude       ( Integer, Bool
+import PlutusTx.Prelude       ( Integer, Bool(..)
                               , ($), (&&), (||), (==), (>), (<>)
                               , length, traceIfFalse
                               )
@@ -70,15 +70,20 @@ mkEscrowValidator :: ReceiverAddress
                   -> Bool
 mkEscrowValidator raddr EscrowDatum{..} r ctx =
     case r of
-        CancelEscrow  -> cancelValidator eInfo signer
+        CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
         ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
+                          && controlTokenBurned
+        UpdateEscrow  -> updateValidator
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
-    &&
-    traceIfFalse "controlToken was not burned"
-                 (eAssetClass == assetClass mintedCS mintedTN && mintedA == -1)
+
   where
+    controlTokenBurned :: Bool
+    controlTokenBurned =
+      traceIfFalse "controlToken was not burned"
+      (eAssetClass == assetClass mintedCS mintedTN && mintedA == -1)
+
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName
     (mintedCS, mintedTN, mintedA) = getSingleton $
@@ -137,6 +142,11 @@ resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
     receiverV :: Value
     receiverV = valuePaidTo (toAddress rAddr) info
 
+{-# INLINABLE updateValidator #-}
+updateValidator :: Bool
+updateValidator = traceIfFalse "Ja" True
+
+
 {- | Escrow Control Token minting policy
 
 The token minting policy is parametrized by the script address and has the
@@ -155,15 +165,14 @@ On Burning:
 {-# INLINABLE mkControlTokenMintingPolicy #-}
 mkControlTokenMintingPolicy :: ScriptAddress -> () -> ScriptContext -> Bool
 mkControlTokenMintingPolicy addr _ ctx =
-    traceIfFalse "Burning less or more than one token" (mintedA == -1)
+  traceIfFalse "Burning less or more than one token" (mintedA == - 1)
     ||
-    (   traceIfFalse "Minting more than one token"
-                     (mintedA == 1)
-     && traceIfFalse "The control token was not paid to the script address"
-                     controlTokenPaid
-     && traceIfFalse "Wrong information in Datum"
-                     correctDatum
-    )
+      traceIfFalse "Minting more than one token" (mintedA == 1)
+        &&
+          traceIfFalse
+            "The control token was not paid to the script address"
+            controlTokenPaid
+            && traceIfFalse "Wrong information in Datum" correctDatum
   where
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName

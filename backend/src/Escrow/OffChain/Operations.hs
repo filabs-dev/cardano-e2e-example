@@ -20,6 +20,7 @@ module Escrow.OffChain.Operations
     , cancelOp
     , resolveOp
     , reloadOp
+    , updateOp
     )
 where
 
@@ -28,12 +29,13 @@ import Control.Lens    ( (^.) )
 import Control.Monad   ( forever, unless )
 import Data.Map        ( singleton )
 import Data.Text       ( Text )
-import Data.Monoid     ( Last(..) )
+import Data.Monoid     ( Last(..))
 
 -- IOG imports
 import Ledger             ( DecoratedTxOut, TxOutRef, AssetClass, Value
                           , decoratedTxOutValue, getDatum
                           , unPaymentPubKeyHash
+                          , Datum(..)
                           )
 import Ledger.Constraints ( plutusV1MintingPolicy, mustBeSignedBy
                           , mustMintValue
@@ -53,7 +55,8 @@ import PlutusTx.Numeric qualified as PN ( (-) )
 
 -- Escrow imports
 import Escrow.OffChain.Interface ( StartParams(..), CancelParams(..)
-                                 , ResolveParams(..), UtxoEscrowInfo
+                                 , ResolveParams(..), UpdateParams(..)
+                                 , UtxoEscrowInfo
                                  , EscrowSchema
                                  , ObservableState
                                  , mkUtxoEscrowInfo
@@ -68,7 +71,7 @@ import Escrow.Validator ( Escrowing
                         , controlTokenCurrency, controlTokenMP
                         )
 import Escrow.Types   ( eInfo, cTokenName, mkEscrowDatum
-                      , cancelRedeemer, resolveRedeemer
+                      , cancelRedeemer, resolveRedeemer, updateRedeemer
                       )
 import Utils.OffChain ( lookupScriptUtxos, findValidUtxoFromRef
                       , getDatumWithError
@@ -83,7 +86,7 @@ endpoints
     :: WalletAddress
     -> Contract (Last ObservableState) EscrowSchema Text ()
 endpoints raddr = forever $ handleError logError $ awaitPromise $
-                  startEp `select` cancelEp `select` resolveEp `select` reloadEp
+                  startEp `select` cancelEp `select` resolveEp `select` reloadEp `select` updateEp
   where
     startEp :: Promise (Last ObservableState) EscrowSchema Text ()
     startEp = endpoint @"start" $ startOp raddr
@@ -96,6 +99,9 @@ endpoints raddr = forever $ handleError logError $ awaitPromise $
 
     reloadEp :: Promise (Last ObservableState) EscrowSchema Text ()
     reloadEp = endpoint @"reload" $ reloadOp raddr
+
+    updateEp :: Promise (Last ObservableState) EscrowSchema Text ()
+    updateEp = endpoint @"update" $ updateOp raddr
 
 {- | A user, using its `addr`, locks the tokens they want to exchange and
      specifies the tokens they want to receive and from whom, all these
@@ -243,6 +249,47 @@ reloadOp addr rFlag = do
 
     tell $ Last $ Just $ mkObservableState rFlag utxosEInfo
 
+{- | The user, using its `addr`, updates the escrow placed on the utxo
+     referenced on `updateParams` to change their address to receive
+     payment, or change the payment amount or asset class.
+-}
+updateOp
+    :: forall s
+    .  WalletAddress
+    -> UpdateParams
+    -> Contract (Last ObservableState) s Text ()
+updateOp addr UpdateParams{..} = do
+
+    let senderPpkh      = waPaymentPubKeyHash addr
+        contractAddress = escrowAddress upReceiverAddress
+        cTokenCurrency  = controlTokenCurrency contractAddress
+        cTokenAsset     = assetClass cTokenCurrency cTokenName
+        validator       = escrowValidator upReceiverAddress
+
+    utxo  <- findValidUtxoFromRef upTxOutRef contractAddress cTokenAsset
+
+    let
+        escrowVal = utxo ^. decoratedTxOutValue
+        datum     = mkEscrowDatum newSenderAddress
+                                  newReceiveAmount
+                                  newReceiveAssetClass
+                                  cTokenAsset
+
+        lkp = mconcat
+            [ typedValidatorLookups (escrowInst upReceiverAddress)
+            , plutusV1OtherScript validator
+            , unspentOutputs (singleton upTxOutRef utxo)
+            ]
+        tx = mconcat
+            [ mustPayToTheScriptWithDatumInTx datum escrowVal
+            , mustSpendScriptOutput upTxOutRef updateRedeemer
+            , mustBeSignedBy senderPpkh
+            ]
+    mkTxConstraints @Escrowing lkp tx >>= yieldUnbalancedTx
+    logInfo @String "Escrow updated"
+    logInfo @String $ "Escrow Address: " ++ show contractAddress
+    logInfo @String $ "Control Token Currency Symbol: " ++ show cTokenCurrency
+
 {- | Off-chain function for getting the Typed Datum (EscrowInfo) from a
      DecoratedTxOut.
 -}
@@ -252,7 +299,7 @@ getEscrowInfo
     -> Contract w s Text EscrowInfo
 getEscrowInfo txOut = getDatumWithError txOut >>=
                       maybe (throwError "Datum format invalid")
-                            (pure . eInfo) . (fromBuiltinData . getDatum)
+                            (pure . eInfo) . fromBuiltinData . getDatum
 
 -- | Off-chain function for getting an UtxoEscrowInfo from a DecoratedTxOut.
 mkUtxoEscrowInfoFromTxOut

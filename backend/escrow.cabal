@@ -132,6 +132,7 @@ test-suite escrow-tests
   hs-source-dirs: test
   other-modules:
     Tests.Utils
+    Tests.BCExplorer
     Tests.Prop.Escrow
     Tests.Prop.EscrowModel
     Tests.Prop.Extra
@@ -140,6 +141,7 @@ test-suite escrow-tests
     Tests.OffChain.Trace1
     Tests.OffChain.Trace2
     Tests.OffChain.Trace3
+    Tests.OffChain.Trace4
 
   default-language: Haskell2010
   default-extensions:
@@ -200,3 +202,6 @@ test-suite escrow-tests
     , tasty
     , text
     , tasty-quickcheck
+    , ansi-terminal
+    , freer-simple
+    , plutus-pab

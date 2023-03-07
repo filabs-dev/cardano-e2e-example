@@ -1,5 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
+
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# options_ghc -Wno-redundant-constraints #-}
+{-# options_ghc -fno-strictness            #-}
+{-# options_ghc -fno-specialise            #-}
+{-# options_ghc -fexpose-all-unfoldings    #-}
 {-|
 Module      : Escrow.OnChain
 Description : OnChain validator for the Escrow dApp.
@@ -28,7 +35,7 @@ import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
 import Plutus.V1.Ledger.Contexts (getContinuingOutputs)
 import PlutusTx.Prelude       ( Integer, Bool(..), Maybe(..)
                               , ($), (&&), (||), (==), (<), (>), (<>)
-                              , length, traceIfFalse, traceError, null
+                              , length, traceIfFalse, traceError, null, BuiltinString
                               )
 
 import PlutusTx               ( BuiltinData, fromBuiltinData )
@@ -48,7 +55,7 @@ import Utils.OnChain       ( fromJust, getSingleton, getScriptInputs
                            )
 import Utils.WalletAddress ( toAddress )
 
---import Utils.BuiltinShow
+import Utils.BuiltinShow
 {- | Escrow Validator
 
 Validates the transactions that involve spending the script UTxO with Cancel or
@@ -79,12 +86,15 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
        -- CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
        -- ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
        --                   && controlTokenBurned
-        UpdateEscrow  -> traceIfFalse ("empty outputs list") (null (getContinuingOutputs ctx))--traceIfFalse (bshow sOutUTxOs) False -- True && controlScriptOutput && controlDontForge
+        UpdateEscrow  -> traceIfFalse inputsString False--traceIfFalse (bshow sOutUTxOs) False -- True && controlScriptOutput && controlDontForge
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
 
   where
+    inputsString :: BuiltinString
+    inputsString = "INPUTS " <> bshow (txInfoInputs info) <> "OUTPUTS " <> bshow (txInfoOutputs info)
+
     controlTokenBurned :: Bool
     controlTokenBurned =
       traceIfFalse "controlToken was not burned"

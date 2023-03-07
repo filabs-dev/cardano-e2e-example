@@ -25,9 +25,10 @@ import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
                               , assetClass, assetClassValueOf, assetClassValue
                               , flattenValue, leq
                               )
+import Plutus.V1.Ledger.Contexts (getContinuingOutputs)
 import PlutusTx.Prelude       ( Integer, Bool(..), Maybe(..)
                               , ($), (&&), (||), (==), (<), (>), (<>)
-                              , length, traceIfFalse, traceError
+                              , length, traceIfFalse, traceError, null
                               )
 
 import PlutusTx               ( BuiltinData, fromBuiltinData )
@@ -47,6 +48,7 @@ import Utils.OnChain       ( fromJust, getSingleton, getScriptInputs
                            )
 import Utils.WalletAddress ( toAddress )
 
+--import Utils.BuiltinShow
 {- | Escrow Validator
 
 Validates the transactions that involve spending the script UTxO with Cancel or
@@ -74,10 +76,10 @@ mkEscrowValidator :: ReceiverAddress
                   -> Bool
 mkEscrowValidator raddr EscrowDatum{..} r ctx =
     case r of
-        CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
-        ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
-                          && controlTokenBurned
-        UpdateEscrow  -> updateValidator info eInfo signer && controlScriptOutput && controlDontForge
+       -- CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
+       -- ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
+       --                   && controlTokenBurned
+        UpdateEscrow  -> traceIfFalse ("empty outputs list") (null (getContinuingOutputs ctx))--traceIfFalse (bshow sOutUTxOs) False -- True && controlScriptOutput && controlDontForge
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
@@ -115,7 +117,7 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
     sUtxos = getScriptInputs ctx
 
     sOutUTxOs :: [TxOut]
-    sOutUTxOs = getScriptOutputs ctx
+    sOutUTxOs = getContinuingOutputs ctx
 
     scriptValue :: Value
     scriptValue = txOutValue (getSingleton sUtxos)

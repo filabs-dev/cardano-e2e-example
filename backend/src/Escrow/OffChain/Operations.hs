@@ -260,15 +260,18 @@ updateOp
     -> Contract (Last ObservableState) s Text ()
 updateOp addr UpdateParams{..} = do
 
-    let senderPpkh      = waPaymentPubKeyHash addr
+    let
         contractAddress = escrowAddress upReceiverAddress
         cTokenCurrency  = controlTokenCurrency contractAddress
         cTokenAsset     = assetClass cTokenCurrency cTokenName
         validator       = escrowValidator upReceiverAddress
 
     utxo  <- findValidUtxoFromRef upTxOutRef contractAddress cTokenAsset
+    eInfo <- getEscrowInfo utxo
 
     let
+        senderWallAddr = eInfoSenderWallAddr eInfo
+        senderPpkh     = waPaymentPubKeyHash senderWallAddr
         escrowVal = utxo ^. decoratedTxOutValue
         datum     = mkEscrowDatum newSenderAddress
                                   newReceiveAmount

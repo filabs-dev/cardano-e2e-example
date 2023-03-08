@@ -36,18 +36,20 @@ export async function mkStartParams(
 }
 
 export type UpdateParams = {
-  upReceiverAddress: WalletAddress
   upTxOutRef: Plutus.TxOutRef
-  upReceiveAssetClass: Plutus.AssetClass
-  upReceiveAmount: number
+  upSenderAddress?: WalletAddress,
+  upReceiverAddress: WalletAddress
+  upReceiveAmount?: number,
+  upReceiveAssetClass?: Plutus.AssetClass
 }
 
 export async function mkUpdateParams(
-  rAdd: string,
   ref: string,
-  rCurrency: string,
-  rTokenN: string,
-  rAm: number,
+  rAdd: string,
+  rCurrency?: string,
+  rTokenN?: string,
+  rAm?: number,
+  sAdd?: string,
 ): Promise<UpdateParams> {
   const { Address, TxOutRef, AssetClass, succeeded } = await import("cardano-pab-client");
   const [txId, idx]: string[] = ref.split("#");
@@ -55,13 +57,30 @@ export async function mkUpdateParams(
   if (succeeded(result)) {
     const upReceiverAddress = result.value.toWalletAddress();
     const upTxOutRef = new TxOutRef(txId, Number(idx)).toPlutusTxOutRef();
-    const upReceiveAssetClass = new AssetClass(rCurrency, rTokenN).toPlutusAssetClass();
-    return {
-      upReceiverAddress,
-      upTxOutRef,
-      upReceiveAssetClass,
-      upReceiveAmount: rAm,
+    let upReceiveAssetClass;
+    if (rCurrency && rTokenN) {
+      upReceiveAssetClass = new AssetClass(rCurrency, rTokenN).toPlutusAssetClass();
     }
+    let upSenderAddress;
+    if (sAdd) {
+      const senderResult = await Address.fromBech32(sAdd);
+      if (succeeded(senderResult)) {
+        upSenderAddress = senderResult.value.toWalletAddress();
+      } else {
+        throw new Error(senderResult.error);
+      }
+    }
+    const updateParams: UpdateParams = {
+      upTxOutRef,
+      upSenderAddress,
+      upReceiverAddress,
+      upReceiveAmount: rAm,
+      upReceiveAssetClass,
+    };
+    if (!upReceiveAssetClass && !upSenderAddress && !rAm) {
+      throw new Error("At least one of ReceiveAssetClass, SenderAddress, or ReceiveAmount must have a value");
+    }
+    return updateParams;
   } else {
     throw new Error(result.error);
   }

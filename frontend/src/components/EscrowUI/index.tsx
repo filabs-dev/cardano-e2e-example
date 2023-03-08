@@ -327,15 +327,17 @@ const Update = ({showUpdateModal, setShowUpdateModal, contractEndpoints }: Updat
     txOutRef = formData.get("txOutRef") as string,
     recCurrency = formData.get("recCurrency") as string,
     recTN = formData.get("recTokenName") as string,
-    recAmount = parseInt(formData.get("recAmount") as string)
+    recAmount = parseInt(formData.get("recAmount") as string),
+    newSenderAddr = formData.get("newSenderAddr") as string
 
     const updateParams = await mkUpdateParams(
-      recAddr,
       txOutRef,
+      newSenderAddr,
+      recAddr,
+      recAmount,
       recCurrency,
-      recTN,
-      recAmount
-    );
+      recTN
+      );
     await contractEndpoints.update(updateParams);
   }
 
@@ -361,6 +363,12 @@ const Update = ({showUpdateModal, setShowUpdateModal, contractEndpoints }: Updat
                   name="txOutRef"
                   placeholder="Transaction Out Ref"
                 />
+              </Col>
+            </Row>
+            <br></br>
+            <Row>
+              <Col>
+              <hr/>
               </Col>
             </Row>
             <br></br>
@@ -398,6 +406,16 @@ const Update = ({showUpdateModal, setShowUpdateModal, contractEndpoints }: Updat
                 </Col>
               </Row>
               </div>
+              <br></br>
+              <Row>
+                <Col>
+                  <Form.Label>New Sender Address</Form.Label>
+                  <Form.Control
+                    name="newSenderAddr"
+                    placeholder="Address"
+                  />
+                </Col>
+              </Row>
               <br></br>
               <Row>
                   <div className="d-flex align-items-center">

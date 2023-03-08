@@ -37,19 +37,19 @@ export async function mkStartParams(
 
 export type UpdateParams = {
   upTxOutRef: Plutus.TxOutRef
-  upSenderAddress?: WalletAddress,
+  newSenderAddress: WalletAddress,
   upReceiverAddress: WalletAddress
-  upReceiveAmount?: number,
-  upReceiveAssetClass?: Plutus.AssetClass
+  newReceiveAmount: number,
+  newReceiveAssetClass: Plutus.AssetClass
 }
 
 export async function mkUpdateParams(
   ref: string,
+  sAdd: string,
   rAdd: string,
-  rCurrency?: string,
-  rTokenN?: string,
-  rAm?: number,
-  sAdd?: string,
+  rAm: number,
+  rCurrency: string,
+  rTokenN: string,
 ): Promise<UpdateParams> {
   const { Address, TxOutRef, AssetClass, succeeded } = await import("cardano-pab-client");
   const [txId, idx]: string[] = ref.split("#");
@@ -57,34 +57,25 @@ export async function mkUpdateParams(
   if (succeeded(result)) {
     const upReceiverAddress = result.value.toWalletAddress();
     const upTxOutRef = new TxOutRef(txId, Number(idx)).toPlutusTxOutRef();
-    let upReceiveAssetClass;
-    if (rCurrency && rTokenN) {
-      upReceiveAssetClass = new AssetClass(rCurrency, rTokenN).toPlutusAssetClass();
-    }
-    let upSenderAddress;
-    if (sAdd) {
-      const senderResult = await Address.fromBech32(sAdd);
-      if (succeeded(senderResult)) {
-        upSenderAddress = senderResult.value.toWalletAddress();
-      } else {
-        throw new Error(senderResult.error);
+    const newReceiveAssetClass = new AssetClass(rCurrency, rTokenN).toPlutusAssetClass();
+    const senderResult = await Address.fromBech32(sAdd);
+    if (succeeded(senderResult)) {
+      const newSenderAddress = senderResult.value.toWalletAddress();
+      return {
+        upTxOutRef,
+        newSenderAddress,
+        upReceiverAddress,
+        newReceiveAmount: rAm,
+        newReceiveAssetClass,
       }
+    } else {
+      throw new Error(senderResult.error);
     }
-    const updateParams: UpdateParams = {
-      upTxOutRef,
-      upSenderAddress,
-      upReceiverAddress,
-      upReceiveAmount: rAm,
-      upReceiveAssetClass,
-    };
-    if (!upReceiveAssetClass && !upSenderAddress && !rAm) {
-      throw new Error("At least one of ReceiveAssetClass, SenderAddress, or ReceiveAmount must have a value");
-    }
-    return updateParams;
   } else {
     throw new Error(result.error);
   }
 }
+
 
 export type CancelParams = {
   cpReceiverAddress: WalletAddress

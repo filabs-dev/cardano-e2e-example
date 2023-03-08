@@ -17,7 +17,7 @@ import Ledger     ( Address(..), Value, PubKeyHash
 import Ledger.Ada ( toValue )
 import PlutusTx   ( FromData(..) )
 import PlutusTx.Prelude ( Maybe(..), Bool(..)
-                        , (.), (>>=), (==), ($)
+                        , (.), (>>=), (==), ($), (!!)
                         , mapMaybe, map, mconcat
                         , traceError, filter
                         )
@@ -34,16 +34,6 @@ getScriptInputs ctx = filter
                             (isScript . txOutAddress)
                             (map txInInfoResolved
                                  (txInfoInputs $ scriptContextTxInfo ctx))
-  where
-    isScript (Address (ScriptCredential _) _) = True
-    isScript _ = False
-
--- | Get all the script outputs from the context
-{-# INLINABLE getScriptOutputs #-}
-getScriptOutputs :: ScriptContext -> [TxOut]
-getScriptOutputs ctx = filter
-                            (isScript . txOutAddress)
-                            (txInfoOutputs $ scriptContextTxInfo ctx)
   where
     isScript (Address (ScriptCredential _) _) = True
     isScript _ = False

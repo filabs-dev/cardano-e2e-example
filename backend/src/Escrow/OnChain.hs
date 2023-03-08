@@ -35,7 +35,7 @@ import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
 import Plutus.V1.Ledger.Contexts (getContinuingOutputs)
 import PlutusTx.Prelude       ( Integer, Bool(..), Maybe(..)
                               , ($), (&&), (||), (==), (<), (>), (<>)
-                              , length, traceIfFalse, traceError, null, BuiltinString
+                              , length, traceIfFalse, traceError, BuiltinString
                               )
 
 import PlutusTx               ( BuiltinData, fromBuiltinData )
@@ -51,7 +51,6 @@ import Escrow.Types        ( EscrowDatum(..), EscrowRedeemer(..)
                            )
 import Utils.OnChain       ( fromJust, getSingleton, getScriptInputs
                            , valuePaidTo, outputsAt, getTxOutDatum
-                           , getScriptOutputs
                            )
 import Utils.WalletAddress ( toAddress )
 
@@ -83,17 +82,18 @@ mkEscrowValidator :: ReceiverAddress
                   -> Bool
 mkEscrowValidator raddr EscrowDatum{..} r ctx =
     case r of
-       -- CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
-       -- ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
-       --                   && controlTokenBurned
-        UpdateEscrow  -> traceIfFalse inputsString False--traceIfFalse (bshow sOutUTxOs) False -- True && controlScriptOutput && controlDontForge
+        CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
+        ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
+                          && controlTokenBurned
+        UpdateEscrow  -> controlScriptOutput && updateValidator info eInfo signer-- traceIfFalse (bshow sOutUTxOs) --traceIfFalse inputsString False
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
 
   where
     inputsString :: BuiltinString
-    inputsString = "INPUTS " <> bshow (txInfoInputs info) <> "OUTPUTS " <> bshow (txInfoOutputs info)
+    inputsString = -- "  -- INPUTS --  " <> bshow (txInfoInputs info) <>
+                   "  -- OUTPUTS --  " <> bshow (txInfoOutputs info)
 
     controlTokenBurned :: Bool
     controlTokenBurned =
@@ -108,9 +108,7 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
     controlDontForge :: Bool
     controlDontForge =
       traceIfFalse "updateValidator: Wrong control token"
-      (eAssetClass == assetClass mintedCS mintedTN
-      && mintedA == 0)
-
+      (null' $ flattenValue $ txInfoMint info)
 
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName
@@ -138,6 +136,10 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
 
     scriptOutValue :: Value
     scriptOutValue = txOutValue (getSingleton sOutUTxOs)
+
+    null' :: [a] -> Bool
+    null' [] = True
+    null' _  = False
 
 {- | Checks:
  - The address that is trying to cancel the escrow is the same as the Sender’s

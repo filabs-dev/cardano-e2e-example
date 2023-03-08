@@ -27,6 +27,7 @@ import Ledger.Value          ( assetClass )
 import Plutus.Trace.Emulator ( activateContractWallet, callEndpoint
                              , EmulatorTrace, runEmulatorTraceIO', waitNSlots
                              )
+import Control.Monad.Freer.Extras.Log
 import Plutus.Contract.Test  ( (.&&.), checkPredicateOptions
                              , defaultCheckOptions, emulatorConfig
                              , walletFundsChange
@@ -106,6 +107,7 @@ trace = do
     void $ waitNSlots 10
 
     callEndpoint @"reload" h3 mockReloadFlag
+    void $ waitNSlots 10
     utxos <- getEscrowInfoList h3
 
     let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
@@ -117,6 +119,10 @@ trace = do
     void $ waitNSlots 10
 
     printBlockChainCFD [ FD (fromBuiltinData :: BuiltinData -> Maybe EscrowDatum) ]
+    void $ waitNSlots 10
+
+    logInfo @String ("WALLET 1: " ++ show wallet1Addr)
+    logInfo @String ("WALLET 2: " ++ show wallet2Addr)
     void $ waitNSlots 10
 
 -- | For running the trace from the repl

@@ -2,13 +2,14 @@ import React, { useState } from "react"
 import { Container, Navbar, Nav, Button, Modal, Form, Table, Spinner, Row, Col } from "react-bootstrap";
 import type { TxOutRef } from "cardano-pab-client";
 import { EscrowEndpoints, ObsState, UtxoEscrowInfo } from "src/contractEndpoints/escrow";
-import { mkStartParams, mkCancelParams, mkResolveParams } from "src/contractEndpoints/parameters";
+import { mkStartParams, mkCancelParams, mkResolveParams, mkUpdateParams } from "src/contractEndpoints/parameters";
 
 function EscrowUI(): JSX.Element {
   const [currentContractState, setCurrentContractState] = useState<ObsState>({escrowsInfo: [], networkId: 0})
   const [contractEndpoints, setContractEndpoints] = useState<EscrowEndpoints | undefined>();
   const [isConnected, setIsConnected] = useState(false);
   const [showStartModal, setShowStartModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
 
   return (
@@ -34,6 +35,20 @@ function EscrowUI(): JSX.Element {
       <Start
         showStartModal={showStartModal}
         setShowStartModal={setShowStartModal}
+        contractEndpoints={contractEndpoints}
+      />
+      <Button
+        style={{ marginRight: "20px" }}
+        variant="primary"
+        size="lg"
+        onClick={() => setShowUpdateModal(true)}
+        disabled={!isConnected}
+      >
+        Update an Escrow
+      </Button>
+      <Update
+        showUpdateModal={showUpdateModal}
+        setShowUpdateModal={setShowUpdateModal}
         contractEndpoints={contractEndpoints}
       />
       <Button
@@ -291,6 +306,115 @@ const Start = ({ showStartModal, setShowStartModal, contractEndpoints }: StartPr
       </Modal>
     </>
   )
+}
+
+type UpdateProps = {
+  showUpdateModal: boolean
+  setShowUpdateModal: React.Dispatch<React.SetStateAction<boolean>>
+  contractEndpoints: EscrowEndpoints | undefined
+};
+
+// Component that displays the form for updating an existing Escrow.
+const Update = ({showUpdateModal, setShowUpdateModal, contractEndpoints }: UpdateProps) => {
+  const handleClose = async (e: React.BaseSyntheticEvent) => {
+    if (!contractEndpoints) {
+      throw new Error("contractEndpoints not defined!");
+    }
+    setShowUpdateModal(false)
+    e.preventDefault()
+    const formData = new FormData(e.target),
+    recAddr = formData.get("recAddr") as string,
+    txOutRef = formData.get("txOutRef") as string,
+    recCurrency = formData.get("recCurrency") as string,
+    recTN = formData.get("recTokenName") as string,
+    recAmount = parseInt(formData.get("recAmount") as string)
+
+    const updateParams = await mkUpdateParams(
+      recAddr,
+      txOutRef,
+      recCurrency,
+      recTN,
+      recAmount
+    );
+    await contractEndpoints.update(updateParams);
+  }
+
+  return (
+    <Modal show={showUpdateModal}>
+      <Modal.Header closeButton onHide={ () => setShowUpdateModal(false)}>
+        <Modal.Title>Update Escrow</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form onSubmit={handleClose}>
+          <Form.Group className="mb-3" controlId="updateForm">
+            <Form.Label>Receiver Address</Form.Label>
+            <Form.Control
+              name="recAddr"
+              placeholder="Address"
+              autoFocus
+            />
+            <br></br>
+            <Row>
+              <Col>
+                <Form.Label>Transaction Out Ref</Form.Label>
+                <Form.Control
+                  name="txOutRef"
+                  placeholder="Transaction Out Ref"
+                />
+              </Col>
+            </Row>
+            <br></br>
+            <div className="position-relative">
+              <Row>
+                <Col>
+                  <div className="d-flex align-items-center" style={{ border: "1px solid black", borderRadius: "1rem" }}>
+                    <div className="position-absolute z-index-1 bg-white mx-2" style={{ left: 0, top: -10, paddingLeft: "1rem", paddingRight: "1rem" }}>
+                      Receive Asset Class
+                    </div>
+                    <Col className="mx-2 my-4">
+                      <Form.Control
+                        name="recCurrency"
+                        placeholder="Currency Symbol"
+                      />
+                    </Col>
+                    <Col className="mx-2 my-4">
+                      <Form.Control
+                        name="recTokenName"
+                        placeholder="Token name"
+                      />
+                    </Col>
+                  </div>
+                </Col>
+                <Col sm={4}>
+                  <div className="position-absolute" style={{ top: -10 }}>
+                    Receive Amount
+                  </div>
+                  <Form.Control
+                    name="recAmount"
+                    type="number"
+                    placeholder="Amount"
+                    className="my-4"
+                  />
+                </Col>
+              </Row>
+              </div>
+              <br></br>
+              <Row>
+                  <div className="d-flex align-items-center">
+                    <Button
+                      variant="primary"
+                      type="submit"
+                      className="mx-auto"
+                    >
+                      Update Escrow
+                    </Button>
+                  </div>
+              </Row>
+          </Form.Group>
+        </Form>
+      </Modal.Body>
+    </Modal>
+  );
 }
 
 type CancelProps = {

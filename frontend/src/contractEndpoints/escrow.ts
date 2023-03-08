@@ -144,18 +144,46 @@ export class EscrowEndpoints {
   public async update(up: UpdateParams ): Promise<void | undefined> {
     const { failed, setMetadataMessage } = this.PABClient;
 
+    // get unbalanced transaction
     const pabResponse = await this.endpoints.doOperation("update", up);
     if (failed(pabResponse)) {
       console.log(`Didn't get the unbalanced transaction from the PAB. Error: ${pabResponse.error}`);
       alert(`Didn't get the unbalanced transaction from the PAB. Error: ${pabResponse.error}`);
       return;
     }
+    // it yielded
     const etx = pabResponse.value;
     console.log(`Unbalanced tx: ${JSON.stringify(etx)}`);
 
     etx.transaction = await setMetadataMessage(etx.transaction, "Update Escrow");
 
-    // TODO: finish to implement and connect the endpoint
+    //gets sender wallet info
+    const walletInfo = await this.wallet.getWalletInfo();
+    // fully balance the transaction
+    const balancerResult = await this.balancer.fullBalanceTx(
+      etx,
+      walletInfo,
+      { feeUpperBound: 2000000 },
+      this.txBudgetApi
+    );
+    if (failed(balancerResult)) {
+      console.log(`Balancer failed with error: ${balancerResult.error}`);
+      alert(`Balancer failed with error: ${balancerResult.error}`);
+      return;
+    }
+    const balancedTx = balancerResult.value;
+    // print to the console the fully balanced tx cbor for debugging purposes
+    console.log(`Balanced tx: ${balancedTx}`);
+    // now that the transaction is balanced, sign and submit it with the wallet
+    const walletResponse = await this.wallet.signAndSubmit(balancedTx);
+    if (failed(walletResponse)) {
+      console.log(`Update failed when trying to submit it. Error: ${walletResponse.error}`);
+      alert(`Update failed when trying to submit it. Error: ${walletResponse.error}`);
+      return;
+    }
+    const txHash = walletResponse.value;
+    console.log(`TX HASH: ${txHash}`)
+    alert(`Update suceeded. Tx hash: ${txHash}`);
   }
 
   public async reload(): Promise<ObsState | null> {

@@ -8,7 +8,7 @@ import type {
   WalletAddress,
   Plutus,
 } from "cardano-pab-client";
-import { CancelParams, ResolveParams, StartParams } from "./parameters";
+import { CancelParams, ResolveParams, StartParams, UpdateParams } from "./parameters";
 
 /**
  * The representation of the contract Utxo state
@@ -139,6 +139,23 @@ export class EscrowEndpoints {
     const txHash = walletResponse.value;
     console.log(`TX HASH: ${txHash}`)
     alert(`Start suceeded. Tx hash: ${txHash}`);
+  }
+
+  public async update(up: UpdateParams ): Promise<void | undefined> {
+    const { failed, setMetadataMessage } = this.PABClient;
+
+    const pabResponse = await this.endpoints.doOperation("update", up);
+    if (failed(pabResponse)) {
+      console.log(`Didn't get the unbalanced transaction from the PAB. Error: ${pabResponse.error}`);
+      alert(`Didn't get the unbalanced transaction from the PAB. Error: ${pabResponse.error}`);
+      return;
+    }
+    const etx = pabResponse.value;
+    console.log(`Unbalanced tx: ${JSON.stringify(etx)}`);
+
+    etx.transaction = await setMetadataMessage(etx.transaction, "Update Escrow");
+
+    // TODO: finish to implement and connect the endpoint
   }
 
   public async reload(): Promise<ObsState | null> {

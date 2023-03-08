@@ -22,7 +22,7 @@ import PlutusTx.Prelude ( Maybe(..), Bool(..)
                         , traceError, filter
                         )
 import Plutus.V1.Ledger.Contexts ( ScriptContext(..), TxInfo(..), TxInInfo(..)
-                                 , findDatum
+                                 , findDatum, getContinuingOutputs
                                  )
 import Plutus.V1.Ledger.Tx       ( TxOut(..), txOutDatum )
 import Plutus.V1.Ledger.Credential ( Credential(..))

@@ -83,7 +83,7 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
         CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
         ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
                           && controlTokenBurned
-        UpdateEscrow  -> updateValidator ctx (sender eInfo) eAssetClass signer-- traceIfFalse (bshow sOutUTxOs)
+        UpdateEscrow  -> updateValidator ctx (sender eInfo) eAssetClass signer
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)

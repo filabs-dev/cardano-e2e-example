@@ -17,7 +17,7 @@ import Ledger     ( Address(..), Value, PubKeyHash
 import Ledger.Ada ( toValue )
 import PlutusTx   ( FromData(..) )
 import PlutusTx.Prelude ( Maybe(..), Bool(..)
-                        , (.), (>>=), (==), ($), (!!)
+                        , (.), (>>=), (==), ($)
                         , mapMaybe, map, mconcat
                         , traceError, filter
                         )

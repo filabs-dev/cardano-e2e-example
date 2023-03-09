@@ -26,23 +26,22 @@ where
 
 -- IOG imports
 import Plutus.V1.Ledger.Api   ( ScriptContext(..), TxInfo(..), TxOut(..)
-                              , PubKeyHash, TokenName, Datum(..)
+                              , PubKeyHash, TokenName
                               )
-import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
+import Plutus.V1.Ledger.Value ( CurrencySymbol, Value, AssetClass
                               , assetClass, assetClassValueOf, assetClassValue
                               , flattenValue, leq
                               )
-import Plutus.V1.Ledger.Contexts (getContinuingOutputs)
-import PlutusTx.Prelude       ( Integer, Bool(..), Maybe(..)
-                              , ($), (&&), (||), (==), (<), (>), (<>)
-                              , length, traceIfFalse, traceError, BuiltinString
+import Plutus.V1.Ledger.Contexts ( getContinuingOutputs )
+import PlutusTx.Prelude       ( Integer, Bool(..)
+                              , ($), (&&), (||), (==), (>), (<>)
+                              , length, traceIfFalse
                               )
 
-import PlutusTx               ( BuiltinData, fromBuiltinData )
 
 import Plutus.Contract.Test   ()
 -- Escrow imports
-import Escrow.Business     ( ReceiverAddress(..), EscrowInfo(..)
+import Escrow.Business     ( ReceiverAddress(..), EscrowInfo(..), SenderAddress
                            , signerIsSender, signerIsReceiver, eInfoSenderAddr
                            , valueToSender
                            )
@@ -50,11 +49,10 @@ import Escrow.Types        ( EscrowDatum(..), EscrowRedeemer(..)
                            , ScriptAddress
                            )
 import Utils.OnChain       ( fromJust, getSingleton, getScriptInputs
-                           , valuePaidTo, outputsAt, getTxOutDatum
+                           , valuePaidTo, outputsAt, getTxOutDatum, null
                            )
 import Utils.WalletAddress ( toAddress )
 
-import Utils.BuiltinShow
 {- | Escrow Validator
 
 Validates the transactions that involve spending the script UTxO with Cancel or
@@ -85,30 +83,16 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
         CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
         ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
                           && controlTokenBurned
-        UpdateEscrow  -> controlScriptOutput && updateValidator info eInfo signer-- traceIfFalse (bshow sOutUTxOs) --traceIfFalse inputsString False
+        UpdateEscrow  -> updateValidator ctx (sender eInfo) eAssetClass signer-- traceIfFalse (bshow sOutUTxOs)
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
 
   where
-    inputsString :: BuiltinString
-    inputsString = -- "  -- INPUTS --  " <> bshow (txInfoInputs info) <>
-                   "  -- OUTPUTS --  " <> bshow (txInfoOutputs info)
-
     controlTokenBurned :: Bool
     controlTokenBurned =
       traceIfFalse "controlToken was not burned"
       (eAssetClass == assetClass mintedCS mintedTN && mintedA == -1)
-
-    controlScriptOutput :: Bool
-    controlScriptOutput =
-      traceIfFalse "Incorrect script output value"
-      (scriptInValue == scriptOutValue)
-
-    controlDontForge :: Bool
-    controlDontForge =
-      traceIfFalse "updateValidator: Wrong control token"
-      (null' $ flattenValue $ txInfoMint info)
 
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName
@@ -124,22 +108,10 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
     sUtxos :: [TxOut]
     sUtxos = getScriptInputs ctx
 
-    sOutUTxOs :: [TxOut]
-    sOutUTxOs = getContinuingOutputs ctx
-
     scriptValue :: Value
     scriptValue = txOutValue (getSingleton sUtxos)
                 <> assetClassValue eAssetClass (-1)
 
-    scriptInValue :: Value
-    scriptInValue = txOutValue (getSingleton sUtxos)
-
-    scriptOutValue :: Value
-    scriptOutValue = txOutValue (getSingleton sOutUTxOs)
-
-    null' :: [a] -> Bool
-    null' [] = True
-    null' _  = False
 
 {- | Checks:
  - The address that is trying to cancel the escrow is the same as the Sender’s
@@ -183,37 +155,59 @@ resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
 {- | Checks:
  - The value of the input script UTxO is the same as the output script UTxO.
  - The address that is trying to update is the same as the Sender’s address.
- - The control token is in the script UTxO, it isn't burned nor minted.
+ - The control token is in the script UTxO, and it isn't burned nor minted.
+ - The new receive amount is bigger than zero.
+ - The control token asset class is the same in the output script datum.
 -}
 {-# INLINABLE updateValidator #-}
-updateValidator :: TxInfo -> EscrowInfo -> PubKeyHash -> Bool
-updateValidator info EscrowInfo{..} signer =
+updateValidator :: ScriptContext -> SenderAddress -> AssetClass -> PubKeyHash -> Bool
+updateValidator ctx sender eAssetClassInput signer =
     traceIfFalse "updateValidator: Wrong sender signature"
                  (signerIsSender signer sender)
-    -- &&
-    -- traceIfFalse "updateValidator: Wrong control token"
-    --              (eAssetClass == assetClass mintedCS mintedTN
-    --               && mintedA == 0)
-    -- &&
-    -- traceIfFalse "updateValidator: Wrong script output value"
-    --              (scriptInValue == scriptOutValue)
-    -- &&
-    -- traceIfFalse "updateValidator: Incorrect Datum"
-    --              (0 < rAmount $ eInfo outputDatum)
-  -- where
-  --   (datumHash, datum) = txInfoData info
+    &&
+    traceIfFalse "updateValidator: Control token burnt or minted"
+      controlDontForge
+    &&
+    traceIfFalse "updateValidator: Incorrect script output value"
+      (scriptInValue == scriptOutValue)
+    &&
+    traceIfFalse "updateValidator: Incorrect new receive value"
+      correctAmount
+    &&
+    traceIfFalse "updateValidator: Incorrect control token asset class"
+      correctControlAssetClass
+  where
+    controlDontForge :: Bool
+    controlDontForge = null $ flattenValue $ txInfoMint info
 
-    -- ownOutput   :: TxOut
-    -- outputDatum :: EscrowDatum
-    -- (ownOutput, outputDatum) = case getContinuingOutputs ctx of
-    --     [o] -> case txOutDatumHash o of
-    --         Nothing   -> traceError "wrong output type"
-    --         Just h -> case findDatum h info of
-    --             Nothing        -> traceError "datum not found"
-    --             Just (Datum d) ->  case fromBuiltinData d of
-    --                 Just ad' -> (o, ad')
-    --                 Nothing  -> traceError "error decoding data"
-    --     _   -> traceError "expected exactly one continuing output"
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    scriptInValue :: Value
+    scriptInValue = txOutValue (getSingleton sUtxos)
+
+    scriptOutValue :: Value
+    scriptOutValue = txOutValue escrowUtxo
+
+    escrowUtxo :: TxOut
+    escrowUtxo = getSingleton sOutUTxOs
+
+    sUtxos :: [TxOut]
+    sUtxos = getScriptInputs ctx
+
+    sOutUTxOs :: [TxOut]
+    sOutUTxOs = getContinuingOutputs ctx
+
+    escrowDatum :: EscrowDatum
+    escrowDatum = fromJust $ getTxOutDatum escrowUtxo info
+
+    correctAmount :: Bool
+    correctAmount = rAmount (eInfo escrowDatum) > 0
+
+    correctControlAssetClass :: Bool
+    correctControlAssetClass =
+      eAssetClass escrowDatum == eAssetClassInput
+
 
 {- | Escrow Control Token minting policy
 

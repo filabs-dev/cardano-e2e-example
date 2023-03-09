@@ -101,7 +101,7 @@ endpoints raddr = forever $ handleError logError $ awaitPromise $
     reloadEp = endpoint @"reload" $ reloadOp raddr
 
     updateEp :: Promise (Last ObservableState) EscrowSchema Text ()
-    updateEp = endpoint @"update" $ updateOp raddr
+    updateEp = endpoint @"update" $ updateOp
 
 {- | A user, using its `addr`, locks the tokens they want to exchange and
      specifies the tokens they want to receive and from whom, all these
@@ -255,10 +255,9 @@ reloadOp addr rFlag = do
 -}
 updateOp
     :: forall s
-    .  WalletAddress
-    -> UpdateParams
+    . UpdateParams
     -> Contract (Last ObservableState) s Text ()
-updateOp addr UpdateParams{..} = do
+updateOp UpdateParams{..} = do
 
     let
         contractAddress = escrowAddress upReceiverAddress

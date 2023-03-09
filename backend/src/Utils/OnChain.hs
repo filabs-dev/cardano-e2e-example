@@ -87,3 +87,9 @@ fromJust Nothing  = traceError "Got Nothing"
 {-# INLINABLE minAda #-}
 minAda :: Value
 minAda = toValue minAdaTxOut
+
+-- | Verifies if a list is empty
+{-# INLINABLE null #-}
+null :: [a] -> Bool
+null [] = True
+null _  = False

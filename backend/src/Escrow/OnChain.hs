@@ -227,14 +227,15 @@ On Burning:
 {-# INLINABLE mkControlTokenMintingPolicy #-}
 mkControlTokenMintingPolicy :: ScriptAddress -> () -> ScriptContext -> Bool
 mkControlTokenMintingPolicy addr _ ctx =
-  traceIfFalse "Burning less or more than one token" (mintedA == - 1)
+    traceIfFalse "Burning less or more than one token" (mintedA == -1)
     ||
-      traceIfFalse "Minting more than one token" (mintedA == 1)
-        &&
-          traceIfFalse
-            "The control token was not paid to the script address"
-            controlTokenPaid
-            && traceIfFalse "Wrong information in Datum" correctDatum
+    (   traceIfFalse "Minting more than one token"
+                     (mintedA == 1)
+     && traceIfFalse "The control token was not paid to the script address"
+                     controlTokenPaid
+     && traceIfFalse "Wrong information in Datum"
+                     correctDatum
+    )
   where
     mintedCS :: CurrencySymbol
     mintedTN :: TokenName

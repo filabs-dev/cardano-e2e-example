@@ -1,5 +1,12 @@
 {-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE OverloadedStrings #-}
 
+
+{-# OPTIONS_GHC -fno-ignore-interface-pragmas #-}
+{-# options_ghc -Wno-redundant-constraints #-}
+{-# options_ghc -fno-strictness            #-}
+{-# options_ghc -fno-specialise            #-}
+{-# options_ghc -fexpose-all-unfoldings    #-}
 {-|
 Module      : Escrow.OnChain
 Description : OnChain validator for the Escrow dApp.
@@ -21,17 +28,20 @@ where
 import Plutus.V1.Ledger.Api   ( ScriptContext(..), TxInfo(..), TxOut(..)
                               , PubKeyHash, TokenName
                               )
-import Plutus.V1.Ledger.Value ( CurrencySymbol, Value
+import Plutus.V1.Ledger.Value ( CurrencySymbol, Value, AssetClass
                               , assetClass, assetClassValueOf, assetClassValue
                               , flattenValue, leq
                               )
+import Plutus.V1.Ledger.Contexts ( getContinuingOutputs )
 import PlutusTx.Prelude       ( Integer, Bool(..)
                               , ($), (&&), (||), (==), (>), (<>)
                               , length, traceIfFalse
                               )
 
+
+import Plutus.Contract.Test   ()
 -- Escrow imports
-import Escrow.Business     ( ReceiverAddress(..), EscrowInfo(..)
+import Escrow.Business     ( ReceiverAddress(..), EscrowInfo(..), SenderAddress
                            , signerIsSender, signerIsReceiver, eInfoSenderAddr
                            , valueToSender
                            )
@@ -39,7 +49,7 @@ import Escrow.Types        ( EscrowDatum(..), EscrowRedeemer(..)
                            , ScriptAddress
                            )
 import Utils.OnChain       ( fromJust, getSingleton, getScriptInputs
-                           , valuePaidTo, outputsAt, getTxOutDatum
+                           , valuePaidTo, outputsAt, getTxOutDatum, null
                            )
 import Utils.WalletAddress ( toAddress )
 
@@ -73,7 +83,7 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
         CancelEscrow  -> cancelValidator eInfo signer && controlTokenBurned
         ResolveEscrow -> resolveValidator info eInfo raddr signer scriptValue
                           && controlTokenBurned
-        UpdateEscrow  -> updateValidator
+        UpdateEscrow  -> updateValidator ctx (sender eInfo) eAssetClass signer
     &&
     traceIfFalse "more than one script input utxo"
                  (length sUtxos == 1)
@@ -102,6 +112,7 @@ mkEscrowValidator raddr EscrowDatum{..} r ctx =
     scriptValue = txOutValue (getSingleton sUtxos)
                 <> assetClassValue eAssetClass (-1)
 
+
 {- | Checks:
  - The address that is trying to cancel the escrow is the same as the Sender’s
    address.
@@ -119,13 +130,12 @@ cancelValidator EscrowInfo{..} signer =
    (without the control token)
 -}
 {-# INLINABLE resolveValidator #-}
-resolveValidator
-    :: TxInfo
-    -> EscrowInfo
-    -> ReceiverAddress
-    -> PubKeyHash
-    -> Value
-    -> Bool
+resolveValidator :: TxInfo
+                 -> EscrowInfo
+                 -> ReceiverAddress
+                 -> PubKeyHash
+                 -> Value
+                 -> Bool
 resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
     traceIfFalse "resolveValidator: Wrong receiver signature"
                  (signerIsReceiver signer raddr)
@@ -142,9 +152,61 @@ resolveValidator info ei raddr@ReceiverAddress{..} signer scriptValue =
     receiverV :: Value
     receiverV = valuePaidTo (toAddress rAddr) info
 
+{- | Checks:
+ - The value of the input script UTxO is the same as the output script UTxO.
+ - The address that is trying to update is the same as the Sender’s address.
+ - The control token is in the script UTxO, and it isn't burned nor minted.
+ - The new receive amount is bigger than zero.
+ - The control token asset class is the same in the output script datum.
+-}
 {-# INLINABLE updateValidator #-}
-updateValidator :: Bool
-updateValidator = traceIfFalse "Ja" True
+updateValidator :: ScriptContext -> SenderAddress -> AssetClass -> PubKeyHash -> Bool
+updateValidator ctx sender eAssetClassInput signer =
+    traceIfFalse "updateValidator: Wrong sender signature"
+                 (signerIsSender signer sender)
+    &&
+    traceIfFalse "updateValidator: Control token burnt or minted"
+      controlDontForge
+    &&
+    traceIfFalse "updateValidator: Incorrect script output value"
+      (scriptInValue == scriptOutValue)
+    &&
+    traceIfFalse "updateValidator: Incorrect new receive value"
+      correctAmount
+    &&
+    traceIfFalse "updateValidator: Incorrect control token asset class"
+      correctControlAssetClass
+  where
+    controlDontForge :: Bool
+    controlDontForge = null $ flattenValue $ txInfoMint info
+
+    info :: TxInfo
+    info = scriptContextTxInfo ctx
+
+    scriptInValue :: Value
+    scriptInValue = txOutValue (getSingleton sUtxos)
+
+    scriptOutValue :: Value
+    scriptOutValue = txOutValue escrowUtxo
+
+    escrowUtxo :: TxOut
+    escrowUtxo = getSingleton sOutUTxOs
+
+    sUtxos :: [TxOut]
+    sUtxos = getScriptInputs ctx
+
+    sOutUTxOs :: [TxOut]
+    sOutUTxOs = getContinuingOutputs ctx
+
+    escrowDatum :: EscrowDatum
+    escrowDatum = fromJust $ getTxOutDatum escrowUtxo info
+
+    correctAmount :: Bool
+    correctAmount = rAmount (eInfo escrowDatum) > 0
+
+    correctControlAssetClass :: Bool
+    correctControlAssetClass =
+      eAssetClass escrowDatum == eAssetClassInput
 
 
 {- | Escrow Control Token minting policy

@@ -38,10 +38,9 @@ import Plutus.Contract.Test   ( (.&&.)
                               , checkPredicateOptions, defaultCheckOptions
                               , emulatorConfig, walletFundsChange
                               )
-import PlutusTx               ( BuiltinData, fromBuiltinData )
 
 -- Escrow imports
-import Escrow        ( EscrowDatum, mkStartParams, mkResolveParams
+import Escrow        ( mkStartParams, mkResolveParams
                      , mkReceiverAddress, endpoints, escrowUtxo
                      )
 import Tests.Utils   ( emConfig
@@ -52,7 +51,6 @@ import Tests.Utils   ( emConfig
                      , tokenBCurrencySymbol, tokenBName
                      , getEscrowInfoList, mockReloadFlag
                      )
-import Tests.BCExplorer
 
 testMsg :: String
 testMsg = "Starting and resolving 3 escrows with same receiver"

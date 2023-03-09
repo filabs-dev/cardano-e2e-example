@@ -27,6 +27,7 @@ import Ledger.Value          ( assetClass )
 import Plutus.Trace.Emulator ( activateContractWallet, callEndpoint
                              , EmulatorTrace, runEmulatorTraceIO', waitNSlots
                              )
+import Control.Monad.Freer.Extras.Log
 import Plutus.Contract.Test  ( (.&&.), checkPredicateOptions
                              , defaultCheckOptions, emulatorConfig
                              , walletFundsChange
@@ -34,13 +35,13 @@ import Plutus.Contract.Test  ( (.&&.), checkPredicateOptions
 import PlutusTx               ( BuiltinData, fromBuiltinData )
 
 -- Escrow imports
-import Escrow        (EscrowDatum, mkStartParams, mkCancelParams, mkUpdateParams, mkResolveParams
+import Escrow        (EscrowDatum, mkStartParams, mkUpdateParams, mkResolveParams
                      , mkReceiverAddress, endpoints, escrowUtxo
                      , mkSenderAddress
                      )
 import Tests.Utils   ( emConfig
                      , wallet1, wallet2, wallet3
-                     , valueA, valueB, valueC
+                     , valueA, valueC
                      , wallet1Addr, wallet2Addr, wallet3Addr
                      , tokenACurrencySymbol, tokenAName
                      , tokenBCurrencySymbol, tokenBName
@@ -85,16 +86,16 @@ trace = do
     void $ waitNSlots 10
     h3 <- activateContractWallet wallet3 $ endpoints wallet3Addr
     callEndpoint @"reload" h3 mockReloadFlag
-    utxos <- getEscrowInfoList h3
+    utxos1 <- getEscrowInfoList h3
 
     let updateParams1 = mkUpdateParams
-                        (escrowUtxo $ utxos !! 0)
+                        (escrowUtxo $ utxos1 !! 1)
                         (mkSenderAddress wallet1Addr)
                         (mkReceiverAddress wallet3Addr)
                         10
                         (assetClass tokenCCurrencySymbol tokenCName)
         updateParams2 = mkUpdateParams
-                        (escrowUtxo $ utxos !! 1)
+                        (escrowUtxo $ utxos1 !! 0)
                         (mkSenderAddress wallet2Addr)
                         (mkReceiverAddress wallet3Addr)
                         20
@@ -106,10 +107,11 @@ trace = do
     void $ waitNSlots 10
 
     callEndpoint @"reload" h3 mockReloadFlag
-    utxos <- getEscrowInfoList h3
+    void $ waitNSlots 10
+    utxos2 <- getEscrowInfoList h3
 
-    let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos !! 0
-        resolveParams2 = mkResolveParams $ escrowUtxo $ utxos !! 1
+    let resolveParams1 = mkResolveParams $ escrowUtxo $ utxos2 !! 0
+        resolveParams2 = mkResolveParams $ escrowUtxo $ utxos2 !! 1
 
     callEndpoint @"resolve" h3 resolveParams1
     void $ waitNSlots 10
@@ -117,6 +119,10 @@ trace = do
     void $ waitNSlots 10
 
     printBlockChainCFD [ FD (fromBuiltinData :: BuiltinData -> Maybe EscrowDatum) ]
+    void $ waitNSlots 10
+
+    logInfo @String ("WALLET 1: " ++ show wallet1Addr)
+    logInfo @String ("WALLET 2: " ++ show wallet2Addr)
     void $ waitNSlots 10
 
 -- | For running the trace from the repl

@@ -35,6 +35,48 @@ export async function mkStartParams(
   }
 }
 
+export type UpdateParams = {
+  upTxOutRef: Plutus.TxOutRef
+  newSenderAddress: WalletAddress,
+  upReceiverAddress: WalletAddress
+  newReceiveAmount: number,
+  newReceiveAssetClass: Plutus.AssetClass
+}
+
+export async function mkUpdateParams(
+  ref: string,
+  sAdd: string,
+  rAdd: string,
+  rAm: number,
+  rCurrency: string,
+  rTokenN: string,
+): Promise<UpdateParams> {
+  const { Address, TxOutRef, AssetClass, succeeded } = await import("cardano-pab-client");
+  const [txId, idx]: string[] = ref.split("#");
+  const result = await Address.fromBech32(rAdd);
+  if (succeeded(result)) {
+    const upReceiverAddress = result.value.toWalletAddress();
+    const upTxOutRef = new TxOutRef(txId, Number(idx)).toPlutusTxOutRef();
+    const newReceiveAssetClass = new AssetClass(rCurrency, rTokenN).toPlutusAssetClass();
+    const senderResult = await Address.fromBech32(sAdd);
+    if (succeeded(senderResult)) {
+      const newSenderAddress = senderResult.value.toWalletAddress();
+      return {
+        upTxOutRef,
+        newSenderAddress,
+        upReceiverAddress,
+        newReceiveAmount: rAm,
+        newReceiveAssetClass,
+      }
+    } else {
+      throw new Error(senderResult.error);
+    }
+  } else {
+    throw new Error(result.error);
+  }
+}
+
+
 export type CancelParams = {
   cpReceiverAddress: WalletAddress
   cpTxOutRef: Plutus.TxOutRef
